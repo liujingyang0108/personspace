@@ -1,0 +1,18 @@
+{
+  "name": "留白 · 个人生活与成长空间",
+  "short_name": "留白",
+  "description": "记录生活、制定计划、完成复盘的个人空间。",
+  "start_url": "/#/app",
+  "display": "standalone",
+  "background_color": "#f2efe7",
+  "theme_color": "#275d4d",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

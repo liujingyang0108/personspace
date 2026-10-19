@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.cloudbase.net/cli/cloudbaserc.schema.json",
+  "envId": "personspace-d7glmpjdpd81220f3",
+  "region": "ap-shanghai",
+  "database": {
+    "type": "postgresql",
+    "migrations": "./cloudbase/migrations"
+  },
+  "hosting": [
+    {
+      "name": "personspace-web",
+      "root": ".",
+      "framework": "vite-react",
+      "installCommand": "npm install",
+      "buildCommand": "npm run build",
+      "outputDir": "dist",
+      "deployPath": "/",
+      "verify": true,
+      "safe": true,
+      "prune": true
+    }
+  ]
+}
