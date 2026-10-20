@@ -13,6 +13,7 @@
   "dependencies": {
     "@cloudbase/js-sdk": "^3.10.2",
     "lucide-react": "^1.59.0",
+    "mermaid": "^12.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-markdown": "^10.1.0",

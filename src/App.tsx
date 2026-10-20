@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { isValidElement, useEffect, useId, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
@@ -34,6 +34,7 @@ import {
   Sun,
   Target,
   Trash2,
+  Workflow,
   X,
   type LucideIcon,
 } from 'lucide-react'
@@ -944,6 +945,24 @@ function EntryModal({ categories, entry, setData, onClose }: { categories: Entry
   const [tags, setTags] = useState(entry?.tags.join(' ') ?? '')
   const [visibility, setVisibility] = useState<'private' | 'public'>(entry?.visibility ?? 'private')
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit')
+  const editorRef = useRef<HTMLTextAreaElement>(null)
+
+  const insertMermaid = () => {
+    const snippet = '```mermaid\nflowchart TD\n  A[开始] --> B[下一步]\n  B --> C[完成]\n```'
+    const textarea = editorRef.current
+    const start = textarea?.selectionStart ?? content.length
+    const end = textarea?.selectionEnd ?? start
+    const prefix = start > 0 && content[start - 1] !== '\n' ? '\n\n' : ''
+    const suffix = end < content.length && content[end] !== '\n' ? '\n\n' : ''
+    const inserted = `${prefix}${snippet}${suffix}`
+    setContent(`${content.slice(0, start)}${inserted}${content.slice(end)}`)
+    setEditorMode('edit')
+    requestAnimationFrame(() => {
+      const nextPosition = start + inserted.length
+      editorRef.current?.focus()
+      editorRef.current?.setSelectionRange(nextPosition, nextPosition)
+    })
+  }
 
   const selectCategory = (nextId: string) => {
     const previousTemplate = categories.find((category) => category.id === categoryId)?.template ?? ''
@@ -984,19 +1003,22 @@ function EntryModal({ categories, entry, setData, onClose }: { categories: Entry
         <section className="markdown-editor-section">
           <div className="markdown-editor-toolbar">
             <div><strong>正文</strong><small>Markdown</small></div>
-            <div className="segmented markdown-mode-switch" aria-label="正文显示模式">
-              <button className={editorMode === 'edit' ? 'active' : ''} type="button" onClick={() => setEditorMode('edit')}>编辑</button>
-              <button className={editorMode === 'preview' ? 'active' : ''} type="button" onClick={() => setEditorMode('preview')}>预览</button>
+            <div className="markdown-toolbar-actions">
+              <button className="markdown-insert-button" type="button" onClick={insertMermaid}><Workflow size={14} /> 插入流程图</button>
+              <div className="segmented markdown-mode-switch" aria-label="正文显示模式">
+                <button className={editorMode === 'edit' ? 'active' : ''} type="button" aria-pressed={editorMode === 'edit'} onClick={() => setEditorMode('edit')}>编辑</button>
+                <button className={editorMode === 'preview' ? 'active' : ''} type="button" aria-pressed={editorMode === 'preview'} onClick={() => setEditorMode('preview')}>预览</button>
+              </div>
             </div>
           </div>
           {editorMode === 'edit' ? (
-            <textarea className="markdown-editor-input" value={content} onChange={(event) => setContent(event.target.value)} placeholder={'# 标题\n\n从这里开始写正文……'} spellCheck />
+            <textarea ref={editorRef} className="markdown-editor-input" value={content} onChange={(event) => setContent(event.target.value)} placeholder={'# 标题\n\n从这里开始写正文……'} spellCheck />
           ) : content.trim() ? (
             <MarkdownContent content={content} className="markdown-editor-preview" />
           ) : (
             <div className="markdown-editor-preview markdown-empty">还没有正文，切换到“编辑”开始写作。</div>
           )}
-          <p className="markdown-help">支持标题、列表、引用、代码块、表格、链接和任务清单。</p>
+          <p className="markdown-help">支持标题、列表、引用、代码块、表格、链接、任务清单和 Mermaid 图表。</p>
         </section>
         <label><span>标签</span><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="用空格或逗号分隔，例如：工作 复盘" /></label>
         <div className="modal-actions"><button className="secondary-button" type="button" onClick={onClose}>取消</button><button className="primary-button" type="submit">{entry ? '保存修改' : '保存记录'}</button></div>
@@ -1006,7 +1028,53 @@ function EntryModal({ categories, entry, setData, onClose }: { categories: Entry
 }
 
 function MarkdownContent({ content, className = '' }: { content: string; className?: string }) {
-  return <div className={`markdown-content ${className}`.trim()}><ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown></div>
+  return (
+    <div className={`markdown-content ${className}`.trim()}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          pre({ children }) {
+            const isMermaid = isValidElement<{ className?: string }>(children) && children.props.className?.includes('language-mermaid')
+            return isMermaid ? <>{children}</> : <pre>{children}</pre>
+          },
+          code({ className, children }) {
+            if (className?.includes('language-mermaid')) return <MermaidDiagram chart={String(children).replace(/\n$/, '')} />
+            return <code className={className}>{children}</code>
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  )
+}
+
+let mermaidInitialized = false
+
+function MermaidDiagram({ chart }: { chart: string }) {
+  const diagramId = useId().replace(/[^a-zA-Z0-9_-]/g, '')
+  const [rendered, setRendered] = useState({ chart: '', svg: '', error: '' })
+
+  useEffect(() => {
+    let cancelled = false
+
+    import('mermaid').then(async ({ default: mermaid }) => {
+      if (!mermaidInitialized) {
+        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral' })
+        mermaidInitialized = true
+      }
+      const result = await mermaid.render(`mermaid-${diagramId}`, chart)
+      if (!cancelled) setRendered({ chart, svg: result.svg, error: '' })
+    }).catch(() => {
+      if (!cancelled) setRendered({ chart, svg: '', error: '图表语法有误，请检查 Mermaid 代码。' })
+    })
+
+    return () => { cancelled = true }
+  }, [chart, diagramId])
+
+  if (rendered.chart !== chart) return <div className="mermaid-loading">正在生成图表……</div>
+  if (rendered.error) return <div className="mermaid-error"><strong>{rendered.error}</strong><pre><code>{chart}</code></pre></div>
+  return <div className="mermaid-diagram" role="img" aria-label="Mermaid 图表" dangerouslySetInnerHTML={{ __html: rendered.svg }} />
 }
 
 function TaskModal({ setData, onClose }: { setData: DataSetter; onClose: () => void }) {
