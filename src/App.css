@@ -246,6 +246,12 @@
 .entry-detail-content { min-height: 180px; margin-top: 26px; padding-top: 24px; color: var(--text); border-top: 1px solid var(--border); font-family: Georgia, "Songti SC", serif; font-size: 15px; line-height: 1.9; }
 .entry-detail-actions { margin-top: 28px; padding-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--border); }
 .entry-detail-actions > div { display: flex; gap: 8px; }
+.entry-backlinks { margin-top: 24px; padding: 18px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-strong); }
+.entry-backlinks > strong { color: var(--muted); font-size: 10px; }
+.entry-backlinks > div { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 7px; }
+.entry-backlinks button, .record-link { padding: 0; display: inline-flex; align-items: center; gap: 5px; color: var(--accent); background: transparent; border: 0; cursor: pointer; font: inherit; font-weight: 700; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.entry-backlinks button { padding: 7px 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 10px; text-decoration: none; }
+.record-link.missing { color: var(--faint); cursor: not-allowed; text-decoration-style: dashed; }
 
 .plan-intro { padding: 28px 30px; display: flex; justify-content: space-between; align-items: center; gap: 30px; border-radius: 18px; background: linear-gradient(135deg, var(--accent-soft), var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 15%, var(--border)); }
 .plan-intro > div { max-width: 650px; }
@@ -363,6 +369,8 @@
 .markdown-editor-toolbar strong { color: var(--muted); font-size: 10px; }
 .markdown-editor-toolbar small { color: var(--faint); font-size: 9px; }
 .markdown-toolbar-actions { display: flex; align-items: center; gap: 8px; }
+.modal-form label.markdown-record-picker { min-height: 30px; padding: 0 8px; display: flex; grid-template-columns: none; align-items: center; gap: 4px; color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); border-radius: 8px; }
+.modal-form .markdown-record-picker select { width: 105px; min-height: 28px; padding: 0 3px; color: var(--accent); background: transparent; border: 0; cursor: pointer; font-size: 10px; font-weight: 750; }
 .markdown-insert-button { min-height: 30px; padding: 0 11px; display: inline-flex; align-items: center; gap: 6px; color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 750; }
 .markdown-insert-button:hover { border-color: var(--accent); }
 .markdown-mode-switch button { min-height: 30px; padding-inline: 13px; font-size: 10px; }

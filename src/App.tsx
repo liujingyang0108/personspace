@@ -21,6 +21,7 @@ import {
   Eye,
   EyeOff,
   Library,
+  Link2,
   LogIn,
   LogOut,
   Menu,
@@ -44,6 +45,7 @@ import { seedData } from './data/seed'
 import { addDays, formatShortDate, fromLocalISO, toLocalISO, todayISO } from './lib/date'
 import { removeEntry, replaceEntry, toggleEntryVisibility } from './lib/entries'
 import { buildPlanItems, planProgress } from './lib/plan'
+import { expandWikiLinks, referencesEntry, type WikiLinkEntry } from './lib/wikiLinks'
 import { localStore } from './services/localStore'
 import {
   cloudAuth,
@@ -371,8 +373,10 @@ function Workspace({ user, onSignedOut }: { user: CloudUser; onSignedOut: () => 
       {selectedEntry && (
         <EntryDetailModal
           entry={selectedEntry}
+          entries={data.entries}
           category={data.categories.find((category) => category.id === selectedEntry.categoryId)}
           onClose={() => setSelectedEntryId(null)}
+          onOpenEntry={setSelectedEntryId}
           onEdit={() => openEntryEditor(selectedEntry.id)}
           onToggleVisibility={() => changeEntryVisibility(selectedEntry.id)}
           onDelete={() => deleteEntry(selectedEntry.id)}
@@ -381,9 +385,11 @@ function Workspace({ user, onSignedOut }: { user: CloudUser; onSignedOut: () => 
       {entryModalOpen && (
         <EntryModal
           categories={data.categories}
+          entries={data.entries}
           entry={editingEntry}
           setData={setData}
           onClose={closeEntryEditor}
+          onOpenEntry={(entryId) => { closeEntryEditor(); setSelectedEntryId(entryId) }}
         />
       )}
       {planModalOpen && <PlanModal setData={setData} onClose={() => setPlanModalOpen(false)} />}
@@ -504,7 +510,7 @@ function PublicHome({ slug, canEnterWorkspace }: { slug?: string; canEnterWorksp
           <small>{new Date(selected.published_at).toLocaleDateString('zh-CN')} · {selected.category_name}</small>
           <h1>{selected.title}</h1>
           <div className="tag-row">{selected.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>
-          <MarkdownContent content={selected.content} className="article-content" />
+          <MarkdownContent content={selected.content} entries={entries} onOpenEntry={setActiveEntry} className="article-content" />
         </article>
       ) : (
         <>
@@ -901,21 +907,26 @@ function SettingsPage({ data, setData, theme, setTheme, syncState, onReset }: { 
 
 function EntryDetailModal({
   entry,
+  entries,
   category,
   onClose,
+  onOpenEntry,
   onEdit,
   onToggleVisibility,
   onDelete,
 }: {
   entry: Entry
+  entries: Entry[]
   category?: EntryCategory
   onClose: () => void
+  onOpenEntry: (entryId: string) => void
   onEdit: () => void
   onToggleVisibility: () => void
   onDelete: () => void
 }) {
   const Icon = categoryIcons[category?.icon ?? 'file'] ?? FileText
   const categoryColor = category?.color ?? '#8a7c68'
+  const backlinks = entries.filter((candidate) => candidate.id !== entry.id && referencesEntry(candidate.content, entry))
 
   return (
     <Modal title={entry.title} subtitle={`${category?.name ?? '未分类'} · ${formatShortDate(entry.createdAt.slice(0, 10))}`} onClose={onClose} wide>
@@ -925,7 +936,13 @@ function EntryDetailModal({
           <span className={`visibility-badge ${entry.visibility}`}>{entry.visibility === 'public' ? '已公开' : '仅自己可见'}</span>
         </div>
         {entry.tags.length > 0 && <div className="tag-row">{entry.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
-        <MarkdownContent content={entry.content} className="entry-detail-content" />
+        <MarkdownContent content={entry.content} entries={entries} onOpenEntry={onOpenEntry} className="entry-detail-content" />
+        {backlinks.length > 0 && (
+          <aside className="entry-backlinks">
+            <strong>哪些记录提到了这里</strong>
+            <div>{backlinks.map((backlink) => <button key={backlink.id} type="button" onClick={() => onOpenEntry(backlink.id)}><Link2 size={13} />{backlink.title}</button>)}</div>
+          </aside>
+        )}
         <div className="entry-detail-actions">
           <button className="danger-button" type="button" onClick={onDelete}><Trash2 size={15} /> 删除</button>
           <div>
@@ -938,7 +955,7 @@ function EntryDetailModal({
   )
 }
 
-function EntryModal({ categories, entry, setData, onClose }: { categories: EntryCategory[]; entry?: Entry; setData: DataSetter; onClose: () => void }) {
+function EntryModal({ categories, entries, entry, setData, onClose, onOpenEntry }: { categories: EntryCategory[]; entries: Entry[]; entry?: Entry; setData: DataSetter; onClose: () => void; onOpenEntry: (entryId: string) => void }) {
   const [categoryId, setCategoryId] = useState(entry?.categoryId ?? categories[0]?.id ?? '')
   const [title, setTitle] = useState(entry?.title ?? '')
   const [content, setContent] = useState(entry?.content ?? categories[0]?.template ?? '')
@@ -947,8 +964,7 @@ function EntryModal({ categories, entry, setData, onClose }: { categories: Entry
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit')
   const editorRef = useRef<HTMLTextAreaElement>(null)
 
-  const insertMermaid = () => {
-    const snippet = '```mermaid\nflowchart TD\n  A[开始] --> B[下一步]\n  B --> C[完成]\n```'
+  const insertAtCursor = (snippet: string) => {
     const textarea = editorRef.current
     const start = textarea?.selectionStart ?? content.length
     const end = textarea?.selectionEnd ?? start
@@ -962,6 +978,15 @@ function EntryModal({ categories, entry, setData, onClose }: { categories: Entry
       editorRef.current?.focus()
       editorRef.current?.setSelectionRange(nextPosition, nextPosition)
     })
+  }
+
+  const insertMermaid = () => insertAtCursor('```mermaid\nflowchart TD\n  A[开始] --> B[下一步]\n  B --> C[完成]\n```')
+
+  const insertRecordLink = (entryId: string) => {
+    const target = entries.find((candidate) => candidate.id === entryId)
+    if (!target) return
+    const safeTitle = target.title.replaceAll('[', '').replaceAll(']', '').replaceAll('|', '').trim() || '未命名记录'
+    insertAtCursor(`[[entry:${target.id}|${safeTitle}]]`)
   }
 
   const selectCategory = (nextId: string) => {
@@ -1004,6 +1029,7 @@ function EntryModal({ categories, entry, setData, onClose }: { categories: Entry
           <div className="markdown-editor-toolbar">
             <div><strong>正文</strong><small>Markdown</small></div>
             <div className="markdown-toolbar-actions">
+              <label className="markdown-record-picker"><Link2 size={14} /><select value="" aria-label="链接到另一条记录" onChange={(event) => insertRecordLink(event.target.value)}><option value="">链接记录…</option>{entries.filter((candidate) => candidate.id !== entry?.id).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.title}</option>)}</select></label>
               <button className="markdown-insert-button" type="button" onClick={insertMermaid}><Workflow size={14} /> 插入流程图</button>
               <div className="segmented markdown-mode-switch" aria-label="正文显示模式">
                 <button className={editorMode === 'edit' ? 'active' : ''} type="button" aria-pressed={editorMode === 'edit'} onClick={() => setEditorMode('edit')}>编辑</button>
@@ -1014,11 +1040,11 @@ function EntryModal({ categories, entry, setData, onClose }: { categories: Entry
           {editorMode === 'edit' ? (
             <textarea ref={editorRef} className="markdown-editor-input" value={content} onChange={(event) => setContent(event.target.value)} placeholder={'# 标题\n\n从这里开始写正文……'} spellCheck />
           ) : content.trim() ? (
-            <MarkdownContent content={content} className="markdown-editor-preview" />
+            <MarkdownContent content={content} entries={entries} onOpenEntry={onOpenEntry} className="markdown-editor-preview" />
           ) : (
             <div className="markdown-editor-preview markdown-empty">还没有正文，切换到“编辑”开始写作。</div>
           )}
-          <p className="markdown-help">支持标题、列表、引用、代码块、表格、链接、任务清单和 Mermaid 图表。</p>
+          <p className="markdown-help">支持标题、列表、引用、代码块、表格、任务清单、Mermaid 图表和 [[记录标题]] 内部链接。</p>
         </section>
         <label><span>标签</span><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="用空格或逗号分隔，例如：工作 复盘" /></label>
         <div className="modal-actions"><button className="secondary-button" type="button" onClick={onClose}>取消</button><button className="primary-button" type="submit">{entry ? '保存修改' : '保存记录'}</button></div>
@@ -1027,7 +1053,8 @@ function EntryModal({ categories, entry, setData, onClose }: { categories: Entry
   )
 }
 
-function MarkdownContent({ content, className = '' }: { content: string; className?: string }) {
+function MarkdownContent({ content, entries = [], onOpenEntry, className = '' }: { content: string; entries?: WikiLinkEntry[]; onOpenEntry?: (entryId: string) => void; className?: string }) {
+  const markdown = expandWikiLinks(content, entries)
   return (
     <div className={`markdown-content ${className}`.trim()}>
       <ReactMarkdown
@@ -1041,9 +1068,18 @@ function MarkdownContent({ content, className = '' }: { content: string; classNa
             if (className?.includes('language-mermaid')) return <MermaidDiagram chart={String(children).replace(/\n$/, '')} />
             return <code className={className}>{children}</code>
           },
+          a({ href, children }) {
+            if (href?.startsWith('#entry-')) {
+              const entryId = decodeURIComponent(href.slice('#entry-'.length))
+              const target = entries.find((candidate) => candidate.id === entryId)
+              if (!target || !onOpenEntry) return <span className="record-link missing" title="目标记录不存在或不可访问"><Link2 size={13} />{children}</span>
+              return <button className="record-link" type="button" onClick={() => onOpenEntry(target.id)}><Link2 size={13} />{children}</button>
+            }
+            return <a href={href}>{children}</a>
+          },
         }}
       >
-        {content}
+        {markdown}
       </ReactMarkdown>
     </div>
   )
