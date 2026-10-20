@@ -369,6 +369,7 @@
 .markdown-editor-toolbar strong { color: var(--muted); font-size: 10px; }
 .markdown-editor-toolbar small { color: var(--faint); font-size: 9px; }
 .markdown-toolbar-actions { display: flex; align-items: center; gap: 8px; }
+.markdown-file-input { display: none; }
 .modal-form label.markdown-record-picker { min-height: 30px; padding: 0 8px; display: flex; grid-template-columns: none; align-items: center; gap: 4px; color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); border-radius: 8px; }
 .modal-form .markdown-record-picker select { width: 105px; min-height: 28px; padding: 0 3px; color: var(--accent); background: transparent; border: 0; cursor: pointer; font-size: 10px; font-weight: 750; }
 .markdown-insert-button { min-height: 30px; padding: 0 11px; display: inline-flex; align-items: center; gap: 6px; color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border)); border-radius: 8px; cursor: pointer; font-size: 10px; font-weight: 750; }
@@ -378,6 +379,9 @@
 .markdown-editor-preview { min-height: 52vh; max-height: 62vh; padding: 20px 22px; overflow: auto; color: var(--text); background: var(--surface-strong); border: 1px solid var(--border); border-radius: 14px; font-family: Georgia, "Songti SC", serif; font-size: 15px; line-height: 1.9; }
 .markdown-empty { display: grid; place-items: center; color: var(--muted); font-family: inherit; font-size: 12px; }
 .markdown-help { margin: 0; color: var(--faint); font-size: 9px; }
+.markdown-import-status { margin: 0; padding: 8px 10px; border-radius: 8px; font-size: 10px; }
+.markdown-import-status.success { color: var(--accent-strong); background: var(--accent-soft); }
+.markdown-import-status.error { color: #9a4e48; background: rgba(154, 78, 72, .09); }
 
 .markdown-content { overflow-wrap: anywhere; }
 .markdown-content > :first-child { margin-top: 0; }

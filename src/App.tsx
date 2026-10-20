@@ -36,6 +36,7 @@ import {
   Sun,
   Target,
   Trash2,
+  Upload,
   Workflow,
   X,
   type LucideIcon,
@@ -45,6 +46,7 @@ import { normalizeAppData } from './data/normalize'
 import { seedData } from './data/seed'
 import { addDays, formatShortDate, fromLocalISO, toLocalISO, todayISO } from './lib/date'
 import { removeEntry, replaceEntry, toggleEntryVisibility } from './lib/entries'
+import { MAX_MARKDOWN_FILE_SIZE, prepareMarkdownImport } from './lib/markdownImport'
 import { buildPlanItems, planProgress } from './lib/plan'
 import { expandWikiLinks, referencesEntry, type WikiLinkEntry } from './lib/wikiLinks'
 import { localStore } from './services/localStore'
@@ -963,7 +965,36 @@ function EntryModal({ categories, entries, entry, setData, onClose, onOpenEntry 
   const [tags, setTags] = useState(entry?.tags.join(' ') ?? '')
   const [visibility, setVisibility] = useState<'private' | 'public'>(entry?.visibility ?? 'private')
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit')
+  const [importStatus, setImportStatus] = useState('')
   const editorRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const importMarkdownFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (file.size > MAX_MARKDOWN_FILE_SIZE) {
+      setImportStatus('文件超过 2 MB，请压缩内容后再导入。')
+      return
+    }
+    try {
+      const source = await file.text()
+      if (!source.trim()) {
+        setImportStatus('这个 Markdown 文件没有正文内容。')
+        return
+      }
+      const categoryTemplate = categories.find((category) => category.id === categoryId)?.template ?? ''
+      const existingContent = content === categoryTemplate ? '' : content
+      const imported = prepareMarkdownImport(file.name, source, title, existingContent)
+      setTitle(imported.title)
+      setContent(imported.content)
+      setEditorMode('edit')
+      setImportStatus(`已导入 ${file.name}${existingContent.trim() ? '，内容已追加到正文末尾。' : '。'}`)
+      requestAnimationFrame(() => editorRef.current?.focus())
+    } catch {
+      setImportStatus('文件读取失败，请重新选择 Markdown 文件。')
+    }
+  }
 
   const insertAtCursor = (snippet: string) => {
     const textarea = editorRef.current
@@ -1030,6 +1061,8 @@ function EntryModal({ categories, entries, entry, setData, onClose, onOpenEntry 
           <div className="markdown-editor-toolbar">
             <div><strong>正文</strong><small>Markdown</small></div>
             <div className="markdown-toolbar-actions">
+              <input ref={fileInputRef} className="markdown-file-input" type="file" accept=".md,.markdown,text/markdown" onChange={importMarkdownFile} />
+              <button className="markdown-insert-button" type="button" onClick={() => fileInputRef.current?.click()}><Upload size={14} /> 导入 MD</button>
               <label className="markdown-record-picker"><Link2 size={14} /><select value="" aria-label="链接到另一条记录" onChange={(event) => insertRecordLink(event.target.value)}><option value="">链接记录…</option>{entries.filter((candidate) => candidate.id !== entry?.id).map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.title}</option>)}</select></label>
               <button className="markdown-insert-button" type="button" onClick={insertMermaid}><Workflow size={14} /> 插入流程图</button>
               <div className="segmented markdown-mode-switch" aria-label="正文显示模式">
@@ -1045,6 +1078,7 @@ function EntryModal({ categories, entries, entry, setData, onClose, onOpenEntry 
           ) : (
             <div className="markdown-editor-preview markdown-empty">还没有正文，切换到“编辑”开始写作。</div>
           )}
+          {importStatus && <p className={`markdown-import-status ${importStatus.startsWith('已导入') ? 'success' : 'error'}`}>{importStatus}</p>}
           <p className="markdown-help">支持标题、列表、引用、代码块、表格、任务清单、Mermaid 图表和 [[记录标题]] 内部链接。</p>
         </section>
         <label><span>标签</span><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="用空格或逗号分隔，例如：工作 复盘" /></label>
