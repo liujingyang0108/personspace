@@ -289,7 +289,7 @@ function Workspace({ user, onSignedOut }: { user: CloudUser; onSignedOut: () => 
 
   return (
     <div className="app-shell">
-      <Sidebar page={page} onNavigate={navigate} syncState={syncState} onSignOut={async () => { await signOut(); onSignedOut() }} />
+      <Sidebar page={page} entryCount={data.entries.length} onNavigate={navigate} syncState={syncState} onSignOut={async () => { await signOut(); onSignedOut() }} />
 
       <header className="mobile-header">
         <button className="icon-button" type="button" aria-label="打开菜单" onClick={() => setMobileMenuOpen(true)}>
@@ -308,7 +308,7 @@ function Workspace({ user, onSignedOut }: { user: CloudUser; onSignedOut: () => 
               <Brand />
               <button className="icon-button" type="button" aria-label="关闭菜单" onClick={() => setMobileMenuOpen(false)}><X size={20} /></button>
             </div>
-            <Navigation page={page} onNavigate={navigate} />
+            <Navigation page={page} entryCount={data.entries.length} onNavigate={navigate} />
           </aside>
         </div>
       )}
@@ -561,11 +561,11 @@ function Brand({ compact = false }: { compact?: boolean }) {
   )
 }
 
-function Sidebar({ page, onNavigate, syncState, onSignOut }: { page: Page; onNavigate: (page: Page) => void; syncState: SyncState; onSignOut: () => void }) {
+function Sidebar({ page, entryCount, onNavigate, syncState, onSignOut }: { page: Page; entryCount: number; onNavigate: (page: Page) => void; syncState: SyncState; onSignOut: () => void }) {
   return (
     <aside className="sidebar">
       <Brand />
-      <Navigation page={page} onNavigate={onNavigate} />
+      <Navigation page={page} entryCount={entryCount} onNavigate={onNavigate} />
       <div className="sidebar-bottom">
         <button className={`nav-item ${page === 'settings' ? 'active' : ''}`} type="button" onClick={() => onNavigate('settings')}>
           <Settings size={19} /><span>设置</span>
@@ -580,7 +580,7 @@ function Sidebar({ page, onNavigate, syncState, onSignOut }: { page: Page; onNav
   )
 }
 
-function Navigation({ page, onNavigate }: { page: Page; onNavigate: (page: Page) => void }) {
+function Navigation({ page, entryCount, onNavigate }: { page: Page; entryCount: number; onNavigate: (page: Page) => void }) {
   return (
     <nav className="navigation" aria-label="主要导航">
       <p className="nav-label">空间</p>
@@ -590,7 +590,7 @@ function Navigation({ page, onNavigate }: { page: Page; onNavigate: (page: Page)
           <button key={item.id} className={`nav-item ${page === item.id ? 'active' : ''}`} type="button" onClick={() => onNavigate(item.id)}>
             <Icon size={19} />
             <span>{item.label}</span>
-            {item.id === 'entries' && <span className="nav-count">2</span>}
+            {item.id === 'entries' && <span className="nav-count">{entryCount}</span>}
           </button>
         )
       })}
