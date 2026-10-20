@@ -22,7 +22,7 @@
 
 当前检查结果：
 
-- `npm run test` 通过，4 个测试文件，共 12 个测试。
+- `npm run test` 通过，7 个测试文件，共 20 个测试。
 - `npm run lint` 通过。
 - `npm run build` 通过。
 - `npm audit --omit=dev --audit-level=high` 未发现已知漏洞。
@@ -67,7 +67,7 @@ npm run build
 - 记录：按自定义分类管理内容，可设为私密或公开。
 - 记录详情：从记录列表或今日页打开全文，可编辑、删除或调整公开状态。
 - 计划：按日期、执行星期和分配方式生成每日目标。现有方式为平均、前松后紧、前紧后松。
-- 复盘：保存当天做得好的事情、调整项和下一步。
+- 复盘：按当天任务、长期计划和新增记录自动整理事实草稿，也可手动补充做得好的事情、调整项和下一步。
 - 公开主页：预览公开记录。
 - 设置：修改公开资料、主题、浏览器通知和示例数据。
 
@@ -85,6 +85,7 @@ src/data/normalize.ts          旧数据与默认字段合并
 src/lib/date.ts                本地日期转换
 src/lib/entries.ts             记录替换、删除和公开状态切换
 src/lib/plan.ts                长期计划拆分与进度计算
+src/lib/review.ts              每日任务、计划和记录的复盘汇总与草稿生成
 src/services/cloudbase.ts      CloudBase 认证、RDB 请求和公开数据同步
 src/services/localStore.ts     浏览器离线副本
 src/services/reminders.ts      页面存活期间的提醒检查

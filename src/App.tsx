@@ -48,6 +48,7 @@ import { addDays, formatShortDate, fromLocalISO, toLocalISO, todayISO } from './
 import { removeEntry, replaceEntry, toggleEntryVisibility } from './lib/entries'
 import { MAX_MARKDOWN_FILE_SIZE, prepareMarkdownImport } from './lib/markdownImport'
 import { buildPlanItems, planProgress } from './lib/plan'
+import { buildDailyReviewSummary } from './lib/review'
 import { expandWikiLinks, referencesEntry, type WikiLinkEntry } from './lib/wikiLinks'
 import { localStore } from './services/localStore'
 import {
@@ -844,7 +845,7 @@ function PlansPage({ plans, setData, onNewPlan, onPlanProgress }: { plans: Plan[
 }
 
 function ReviewsPage({ data, setData }: { data: AppData; setData: DataSetter }) {
-  const complete = data.tasks.filter((task) => task.completed).length
+  const summary = useMemo(() => buildDailyReviewSummary(data, todayISO()), [data])
   const [showForm, setShowForm] = useState(false)
   const [wins, setWins] = useState('')
   const [lessons, setLessons] = useState('')
@@ -857,6 +858,12 @@ function ReviewsPage({ data, setData }: { data: AppData; setData: DataSetter }) 
     setData((current) => ({ ...current, reflections: [reflection, ...current.reflections] }))
     setWins(''); setLessons(''); setTomorrow(''); setShowForm(false)
   }
+  const applyAutomaticSummary = () => {
+    setWins((current) => current.trim() ? current : summary.draft.wins)
+    setLessons((current) => current.trim() ? current : summary.draft.lessons)
+    setTomorrow((current) => current.trim() ? current : summary.draft.tomorrow)
+    setShowForm(true)
+  }
   return (
     <div className="page-stack">
       <section className="review-hero card">
@@ -866,9 +873,10 @@ function ReviewsPage({ data, setData }: { data: AppData; setData: DataSetter }) 
       </section>
       {showForm && <section className="card reflection-form"><form className="modal-form" onSubmit={saveReflection}><label><span>今天做得好的事情</span><textarea rows={3} value={wins} onChange={(event) => setWins(event.target.value)} placeholder="哪怕只是一件小事……" /></label><label><span>今天学到或想调整的事情</span><textarea rows={3} value={lessons} onChange={(event) => setLessons(event.target.value)} /></label><label><span>明天最重要的一步</span><textarea rows={2} value={tomorrow} onChange={(event) => setTomorrow(event.target.value)} /></label><div className="modal-actions"><button className="primary-button" type="submit">保存今日复盘</button></div></form></section>}
       <div className="review-grid">
-        <section className="card"><p className="section-kicker">行动摘要</p><h2>{complete} 项已完成</h2><p className="muted">还有 {data.tasks.length - complete} 项等待处理，可以延期、拆分或放弃。</p></section>
-        <section className="card"><p className="section-kicker">记录摘要</p><h2>留下了 {data.entries.length} 条记录</h2><p className="muted">记录事实之后，再写下你如何理解它。</p></section>
-        <section className="card reflection-prompt"><Sparkles size={21} /><p>“今天有哪些事情，值得明天继续？”</p><button className="text-button" type="button">写下回答 <ArrowRight size={15} /></button></section>
+        <section className="card"><p className="section-kicker">今日行动</p><h2>{summary.tasks.completed}/{summary.tasks.total} 项已完成</h2><p className="muted">今日待完成 {summary.tasks.pending} 项，另有 {summary.tasks.overdue} 项逾期未完成。</p></section>
+        <section className="card"><p className="section-kicker">今日计划</p><h2>{summary.plans.achieved}/{summary.plans.total} 个达到目标</h2><p className="muted">{summary.plans.items.length > 0 ? summary.plans.items.map((item) => `${item.title} ${item.actual}/${item.target} ${item.unit}`).join('、') : '今天没有需要推进的计划。'}</p></section>
+        <section className="card"><p className="section-kicker">今日记录</p><h2>留下了 {summary.entries.total} 条记录</h2><p className="muted">{summary.entries.categories.length > 0 ? summary.entries.categories.map((item) => `${item.name} ${item.count} 条`).join('、') : '今天还没有新增记录。'}</p></section>
+        <section className="card reflection-prompt"><Sparkles size={21} /><p>系统已按今天的数据整理好一份复盘草稿。</p><button className="text-button" type="button" onClick={applyAutomaticSummary}>自动整理 <ArrowRight size={15} /></button></section>
       </div>
       {data.reflections.length > 0 && <section className="reflection-history"><div className="card-heading"><div><p className="section-kicker">过往复盘</p><h2>回看走过的路</h2></div></div>{data.reflections.map((reflection) => <article className="card reflection-entry" key={reflection.id}><small>{formatShortDate(reflection.date)}</small>{reflection.wins && <div><strong>做得好</strong><p>{reflection.wins}</p></div>}{reflection.lessons && <div><strong>学到</strong><p>{reflection.lessons}</p></div>}{reflection.tomorrow && <div><strong>下一步</strong><p>{reflection.tomorrow}</p></div>}</article>)}</section>}
     </div>

@@ -286,7 +286,7 @@
 .review-hero { padding: 30px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 18px; }
 .review-icon { width: 53px; height: 53px; display: grid; place-items: center; border-radius: 16px; color: var(--accent); background: var(--accent-soft); }
 .review-hero p:last-child { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
-.review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.review-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .review-grid .card { min-height: 170px; padding: 24px; }
 .reflection-prompt { grid-column: 1 / -1; min-height: 140px !important; display: flex; align-items: center; gap: 18px; color: var(--accent); background: linear-gradient(120deg, var(--accent-soft), var(--surface)); }
 .reflection-prompt p { flex: 1; margin: 0; color: var(--text); font-family: Georgia, "Songti SC", serif; font-size: 19px; }
