@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   Archive,
   ArrowRight,
@@ -501,7 +503,7 @@ function PublicHome({ slug, canEnterWorkspace }: { slug?: string; canEnterWorksp
           <small>{new Date(selected.published_at).toLocaleDateString('zh-CN')} · {selected.category_name}</small>
           <h1>{selected.title}</h1>
           <div className="tag-row">{selected.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>
-          <div className="article-content">{selected.content.split('\n').map((line, index) => <p key={`${line}-${index}`}>{line || '\u00a0'}</p>)}</div>
+          <MarkdownContent content={selected.content} className="article-content" />
         </article>
       ) : (
         <>
@@ -922,9 +924,7 @@ function EntryDetailModal({
           <span className={`visibility-badge ${entry.visibility}`}>{entry.visibility === 'public' ? '已公开' : '仅自己可见'}</span>
         </div>
         {entry.tags.length > 0 && <div className="tag-row">{entry.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
-        <div className="entry-detail-content">
-          {entry.content.split('\n').map((line, index) => <p key={`${line}-${index}`}>{line || '\u00a0'}</p>)}
-        </div>
+        <MarkdownContent content={entry.content} className="entry-detail-content" />
         <div className="entry-detail-actions">
           <button className="danger-button" type="button" onClick={onDelete}><Trash2 size={15} /> 删除</button>
           <div>
@@ -943,6 +943,7 @@ function EntryModal({ categories, entry, setData, onClose }: { categories: Entry
   const [content, setContent] = useState(entry?.content ?? categories[0]?.template ?? '')
   const [tags, setTags] = useState(entry?.tags.join(' ') ?? '')
   const [visibility, setVisibility] = useState<'private' | 'public'>(entry?.visibility ?? 'private')
+  const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit')
 
   const selectCategory = (nextId: string) => {
     const previousTemplate = categories.find((category) => category.id === categoryId)?.template ?? ''
@@ -973,19 +974,39 @@ function EntryModal({ categories, entry, setData, onClose }: { categories: Entry
   }
 
   return (
-    <Modal title={entry ? '编辑记录' : '新建记录'} subtitle={entry ? '修改会自动保存到本地，并同步到云端。' : '先写下真实发生的事情，整理可以稍后再做。'} onClose={onClose}>
+    <Modal title={entry ? '编辑记录' : '新建记录'} subtitle={entry ? '支持 Markdown，修改会自动保存并同步到云端。' : '支持 Markdown 长文写作，也可以直接输入普通文字。'} onClose={onClose} editor>
       <form className="modal-form" onSubmit={submit}>
         <div className="form-grid two-columns">
           <label><span>记录分类</span><select value={categoryId} onChange={(event) => selectCategory(event.target.value)}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
           <label><span>可见范围</span><select value={visibility} onChange={(event) => setVisibility(event.target.value as 'private' | 'public')}><option value="private">仅自己可见</option><option value="public">加入公开主页</option></select></label>
         </div>
         <label><span>标题</span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="今天想记录什么？" /></label>
-        <label><span>正文</span><textarea value={content} onChange={(event) => setContent(event.target.value)} rows={10} placeholder="从一句话开始……" /></label>
+        <section className="markdown-editor-section">
+          <div className="markdown-editor-toolbar">
+            <div><strong>正文</strong><small>Markdown</small></div>
+            <div className="segmented markdown-mode-switch" aria-label="正文显示模式">
+              <button className={editorMode === 'edit' ? 'active' : ''} type="button" onClick={() => setEditorMode('edit')}>编辑</button>
+              <button className={editorMode === 'preview' ? 'active' : ''} type="button" onClick={() => setEditorMode('preview')}>预览</button>
+            </div>
+          </div>
+          {editorMode === 'edit' ? (
+            <textarea className="markdown-editor-input" value={content} onChange={(event) => setContent(event.target.value)} placeholder={'# 标题\n\n从这里开始写正文……'} spellCheck />
+          ) : content.trim() ? (
+            <MarkdownContent content={content} className="markdown-editor-preview" />
+          ) : (
+            <div className="markdown-editor-preview markdown-empty">还没有正文，切换到“编辑”开始写作。</div>
+          )}
+          <p className="markdown-help">支持标题、列表、引用、代码块、表格、链接和任务清单。</p>
+        </section>
         <label><span>标签</span><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="用空格或逗号分隔，例如：工作 复盘" /></label>
         <div className="modal-actions"><button className="secondary-button" type="button" onClick={onClose}>取消</button><button className="primary-button" type="submit">{entry ? '保存修改' : '保存记录'}</button></div>
       </form>
     </Modal>
   )
+}
+
+function MarkdownContent({ content, className = '' }: { content: string; className?: string }) {
+  return <div className={`markdown-content ${className}`.trim()}><ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown></div>
 }
 
 function TaskModal({ setData, onClose }: { setData: DataSetter; onClose: () => void }) {
@@ -1059,10 +1080,10 @@ function PlanModal({ setData, onClose }: { setData: DataSetter; onClose: () => v
   )
 }
 
-function Modal({ title, subtitle, onClose, wide = false, children }: { title: string; subtitle: string; onClose: () => void; wide?: boolean; children: React.ReactNode }) {
+function Modal({ title, subtitle, onClose, wide = false, editor = false, children }: { title: string; subtitle: string; onClose: () => void; wide?: boolean; editor?: boolean; children: React.ReactNode }) {
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className={`modal-card ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby="modal-title" onMouseDown={(event) => event.stopPropagation()}>
+      <section className={`modal-card ${editor ? 'editor' : wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby="modal-title" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-header"><div><h2 id="modal-title">{title}</h2><p>{subtitle}</p></div><button className="icon-button" type="button" aria-label="关闭" onClick={onClose}><X size={20} /></button></div>
         {children}
       </section>
