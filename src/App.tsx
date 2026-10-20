@@ -1,4 +1,5 @@
 import { isValidElement, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
@@ -1077,6 +1078,10 @@ function MarkdownContent({ content, entries = [], onOpenEntry, className = '' }:
             }
             return <a href={href}>{children}</a>
           },
+          img({ src, alt }) {
+            if (!src) return null
+            return <ExpandableImage src={src} alt={alt ?? '文章插图'} />
+          },
         }}
       >
         {markdown}
@@ -1090,6 +1095,7 @@ let mermaidInitialized = false
 function MermaidDiagram({ chart }: { chart: string }) {
   const diagramId = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const [rendered, setRendered] = useState({ chart: '', svg: '', error: '' })
+  const [expanded, setExpanded] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -1146,7 +1152,43 @@ function MermaidDiagram({ chart }: { chart: string }) {
 
   if (rendered.chart !== chart) return <div className="mermaid-loading">正在生成图表……</div>
   if (rendered.error) return <div className="mermaid-error"><strong>{rendered.error}</strong><pre><code>{chart}</code></pre></div>
-  return <div className="mermaid-diagram" role="img" aria-label="Mermaid 图表" dangerouslySetInnerHTML={{ __html: rendered.svg }} />
+  return (
+    <>
+      <button className="mermaid-diagram" type="button" aria-label="放大查看 Mermaid 图表" title="点击放大" onClick={() => setExpanded(true)} dangerouslySetInnerHTML={{ __html: rendered.svg }} />
+      {expanded && <VisualLightbox label="Mermaid 图表" onClose={() => setExpanded(false)}><div className="visual-lightbox-diagram" dangerouslySetInnerHTML={{ __html: rendered.svg }} /></VisualLightbox>}
+    </>
+  )
+}
+
+function ExpandableImage({ src, alt }: { src: string; alt: string }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <>
+      <button className="markdown-image-button" type="button" title="点击放大" onClick={() => setExpanded(true)}><img src={src} alt={alt} loading="lazy" /></button>
+      {expanded && <VisualLightbox label={alt} onClose={() => setExpanded(false)}><img className="visual-lightbox-image" src={src} alt={alt} /></VisualLightbox>}
+    </>
+  )
+}
+
+function VisualLightbox({ label, onClose, children }: { label: string; onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose() }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [onClose])
+
+  return createPortal(
+    <div className="visual-lightbox" role="dialog" aria-modal="true" aria-label={label} onMouseDown={onClose}>
+      <button className="visual-lightbox-close" type="button" aria-label="关闭放大查看" onClick={onClose}><X size={22} /></button>
+      <div className="visual-lightbox-content" onMouseDown={(event) => event.stopPropagation()}>{children}</div>
+    </div>,
+    document.body,
+  )
 }
 
 function TaskModal({ setData, onClose }: { setData: DataSetter; onClose: () => void }) {

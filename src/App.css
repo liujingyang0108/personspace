@@ -400,12 +400,23 @@
 .markdown-content hr { margin: 2em 0; border: 0; border-top: 1px solid var(--border); }
 .markdown-content a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .markdown-content input[type="checkbox"] { width: auto; min-height: 0; margin-right: .45em; accent-color: var(--accent); }
-.mermaid-diagram, .mermaid-loading, .mermaid-error { margin: 1.4em 0; padding: 18px; overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
-.mermaid-diagram { display: grid; place-items: center; }
+.mermaid-diagram, .mermaid-loading, .mermaid-error { width: 100%; margin: 1.4em 0; padding: 18px; overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.mermaid-diagram { display: grid; place-items: center; cursor: zoom-in; }
+.mermaid-diagram:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: 0 8px 24px rgba(34, 56, 47, .08); }
 .mermaid-diagram svg { width: auto; max-width: 100%; height: auto; }
 .mermaid-loading { color: var(--muted); text-align: center; font-family: inherit; font-size: 11px; }
 .mermaid-error { color: #9a4e48; font-family: inherit; font-size: 11px; }
 .mermaid-error pre { margin-bottom: 0; text-align: left; }
+.markdown-image-button { max-width: 100%; margin: 1.2em auto; padding: 0; display: block; overflow: hidden; background: transparent; border: 0; border-radius: 12px; cursor: zoom-in; }
+.markdown-image-button img { max-width: 100%; height: auto; display: block; border-radius: inherit; transition: transform 180ms ease; }
+.markdown-image-button:hover img { transform: scale(1.012); }
+.visual-lightbox { position: fixed; inset: 0; z-index: 1000; padding: 34px; display: grid; place-items: center; background: rgba(15, 20, 18, .88); backdrop-filter: blur(10px); }
+.visual-lightbox-close { position: fixed; top: 20px; right: 22px; z-index: 1; width: 42px; height: 42px; display: grid; place-items: center; color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); border-radius: 99px; cursor: pointer; }
+.visual-lightbox-close:hover { background: rgba(255,255,255,.2); }
+.visual-lightbox-content { width: min(1500px, 96vw); max-height: 92vh; padding: 18px; overflow: auto; display: grid; place-items: center; border-radius: 16px; background: #fff; box-shadow: 0 30px 100px rgba(0,0,0,.42); }
+.visual-lightbox-diagram { min-width: min-content; }
+.visual-lightbox-diagram svg { width: auto; min-width: min(1200px, 88vw); max-width: none; height: auto; display: block; }
+.visual-lightbox-image { max-width: none; width: auto; height: auto; min-width: min(900px, 85vw); display: block; }
 
 .mobile-header, .mobile-bottom-nav { display: none; }
 .mobile-drawer-backdrop { position: fixed; inset: 0; z-index: 80; background: rgba(16, 20, 18, .45); }
@@ -561,6 +572,9 @@
   .modal-form .markdown-editor-input, .markdown-editor-preview { min-height: 48vh; }
   .markdown-editor-toolbar { align-items: flex-start; }
   .markdown-toolbar-actions { align-items: flex-end; flex-direction: column-reverse; }
+  .visual-lightbox { padding: 58px 10px 12px; }
+  .visual-lightbox-content { width: 100%; max-height: calc(100vh - 74px); padding: 10px; }
+  .visual-lightbox-close { top: 10px; right: 12px; }
   .two-columns, .three-columns { grid-template-columns: 1fr; }
   .allocation-preview { grid-template-columns: 1fr 1fr; }
 }
