@@ -1096,7 +1096,43 @@ function MermaidDiagram({ chart }: { chart: string }) {
 
     import('mermaid').then(async ({ default: mermaid }) => {
       if (!mermaidInitialized) {
-        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'neutral' })
+        mermaid.initialize({
+          startOnLoad: false,
+          securityLevel: 'strict',
+          theme: 'base',
+          themeVariables: {
+            background: '#ffffff',
+            primaryColor: '#dcefe6',
+            primaryTextColor: '#243e35',
+            primaryBorderColor: '#6f9a87',
+            lineColor: '#60756b',
+            textColor: '#2d3934',
+            cScale0: '#dcefe6',
+            cScale1: '#f7dfaf',
+            cScale2: '#dce7f7',
+            cScale3: '#f3d6d2',
+            cScale4: '#e8ddf6',
+            cScale5: '#d9eceb',
+            cScale6: '#f1e5c9',
+            cScale7: '#d6e6d8',
+            cScale8: '#f3dbea',
+            cScale9: '#d9e1f0',
+            cScale10: '#efe0d0',
+            cScale11: '#dce9d2',
+            cScaleLabel0: '#243e35',
+            cScaleLabel1: '#493813',
+            cScaleLabel2: '#24364f',
+            cScaleLabel3: '#512e2b',
+            cScaleLabel4: '#392c4c',
+            cScaleLabel5: '#223f3e',
+            cScaleLabel6: '#493d22',
+            cScaleLabel7: '#29422e',
+            cScaleLabel8: '#4e2e42',
+            cScaleLabel9: '#2e3a52',
+            cScaleLabel10: '#4c3929',
+            cScaleLabel11: '#304428',
+          },
+        })
         mermaidInitialized = true
       }
       const result = await mermaid.render(`mermaid-${diagramId}`, chart)
