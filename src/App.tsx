@@ -23,6 +23,7 @@ import {
   LogOut,
   Menu,
   Moon,
+  Pencil,
   Plus,
   RotateCcw,
   Search,
@@ -38,6 +39,7 @@ import './App.css'
 import { normalizeAppData } from './data/normalize'
 import { seedData } from './data/seed'
 import { addDays, formatShortDate, fromLocalISO, toLocalISO, todayISO } from './lib/date'
+import { removeEntry, replaceEntry, toggleEntryVisibility } from './lib/entries'
 import { buildPlanItems, planProgress } from './lib/plan'
 import { localStore } from './services/localStore'
 import {
@@ -55,7 +57,7 @@ import {
   type PublicSpace,
 } from './services/cloudbase'
 import { checkReminders, notificationPermission, requestReminderPermission } from './services/reminders'
-import type { AppData, DistributionMode, EntryCategory, Plan, Reflection } from './types'
+import type { AppData, DistributionMode, Entry, EntryCategory, Plan, Reflection } from './types'
 
 type Page = 'today' | 'entries' | 'plans' | 'reviews' | 'public' | 'settings'
 type Theme = 'light' | 'dark'
@@ -150,6 +152,8 @@ function Workspace({ user, onSignedOut }: { user: CloudUser; onSignedOut: () => 
   )
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [entryModalOpen, setEntryModalOpen] = useState(false)
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null)
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null)
   const [planModalOpen, setPlanModalOpen] = useState(false)
   const [taskModalOpen, setTaskModalOpen] = useState(false)
   const [cloudReady, setCloudReady] = useState(false)
@@ -236,12 +240,43 @@ function Workspace({ user, onSignedOut }: { user: CloudUser; onSignedOut: () => 
     }))
   }
 
+  const openNewEntry = () => {
+    setEditingEntryId(null)
+    setEntryModalOpen(true)
+  }
+
+  const openEntryEditor = (entryId: string) => {
+    setSelectedEntryId(null)
+    setEditingEntryId(entryId)
+    setEntryModalOpen(true)
+  }
+
+  const closeEntryEditor = () => {
+    setEntryModalOpen(false)
+    setEditingEntryId(null)
+  }
+
+  const changeEntryVisibility = (entryId: string) => {
+    setData((current) => ({
+      ...current,
+      entries: toggleEntryVisibility(current.entries, entryId, new Date().toISOString()),
+    }))
+  }
+
+  const deleteEntry = (entryId: string) => {
+    if (!window.confirm('确定删除这条记录吗？此操作会同步到云端。')) return
+    setData((current) => ({ ...current, entries: removeEntry(current.entries, entryId) }))
+    setSelectedEntryId(null)
+  }
+
   const resetDemo = () => {
     localStore.clear()
     setData(seedData)
     setPage('today')
   }
 
+  const selectedEntry = data.entries.find((entry) => entry.id === selectedEntryId)
+  const editingEntry = data.entries.find((entry) => entry.id === editingEntryId)
   const title = pageTitles[page]
 
   return (
@@ -284,7 +319,7 @@ function Workspace({ user, onSignedOut }: { user: CloudUser; onSignedOut: () => 
             <button className="icon-button desktop-only" type="button" aria-label="切换主题" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>
               {theme === 'light' ? <Moon size={19} /> : <Sun size={19} />}
             </button>
-            <button className="primary-button" type="button" onClick={() => setEntryModalOpen(true)}>
+            <button className="primary-button" type="button" onClick={openNewEntry}>
               <Plus size={17} /> 快速记录
             </button>
           </div>
@@ -294,17 +329,27 @@ function Workspace({ user, onSignedOut }: { user: CloudUser; onSignedOut: () => 
           <TodayPage
             data={data}
             onToggleTask={toggleTask}
-            onNewEntry={() => setEntryModalOpen(true)}
+            onNewEntry={openNewEntry}
+            onOpenEntry={setSelectedEntryId}
             onNewPlan={() => setPlanModalOpen(true)}
             onNewTask={() => setTaskModalOpen(true)}
             onPlanProgress={updateTodayPlanProgress}
             onNavigate={navigate}
           />
         )}
-        {page === 'entries' && <EntriesPage data={data} setData={setData} onNewEntry={() => setEntryModalOpen(true)} />}
+        {page === 'entries' && (
+          <EntriesPage
+            data={data}
+            setData={setData}
+            onNewEntry={openNewEntry}
+            onOpenEntry={setSelectedEntryId}
+            onToggleEntryVisibility={changeEntryVisibility}
+            onDeleteEntry={deleteEntry}
+          />
+        )}
         {page === 'plans' && <PlansPage plans={data.plans} setData={setData} onNewPlan={() => setPlanModalOpen(true)} onPlanProgress={updateTodayPlanProgress} />}
         {page === 'reviews' && <ReviewsPage data={data} setData={setData} />}
-        {page === 'public' && <PublicPage data={data} />}
+        {page === 'public' && <PublicPage data={data} onOpenEntry={setSelectedEntryId} />}
         {page === 'settings' && <SettingsPage data={data} setData={setData} theme={theme} setTheme={setTheme} syncState={syncState} onReset={resetDemo} />}
       </main>
 
@@ -320,7 +365,24 @@ function Workspace({ user, onSignedOut }: { user: CloudUser; onSignedOut: () => 
         })}
       </nav>
 
-      {entryModalOpen && <EntryModal categories={data.categories} setData={setData} onClose={() => setEntryModalOpen(false)} />}
+      {selectedEntry && (
+        <EntryDetailModal
+          entry={selectedEntry}
+          category={data.categories.find((category) => category.id === selectedEntry.categoryId)}
+          onClose={() => setSelectedEntryId(null)}
+          onEdit={() => openEntryEditor(selectedEntry.id)}
+          onToggleVisibility={() => changeEntryVisibility(selectedEntry.id)}
+          onDelete={() => deleteEntry(selectedEntry.id)}
+        />
+      )}
+      {entryModalOpen && (
+        <EntryModal
+          categories={data.categories}
+          entry={editingEntry}
+          setData={setData}
+          onClose={closeEntryEditor}
+        />
+      )}
       {planModalOpen && <PlanModal setData={setData} onClose={() => setPlanModalOpen(false)} />}
       {taskModalOpen && <TaskModal setData={setData} onClose={() => setTaskModalOpen(false)} />}
       {toast && <div className="toast"><Bell size={16} /><span>{toast}</span></div>}
@@ -528,6 +590,7 @@ function TodayPage({
   data,
   onToggleTask,
   onNewEntry,
+  onOpenEntry,
   onNewPlan,
   onNewTask,
   onPlanProgress,
@@ -536,6 +599,7 @@ function TodayPage({
   data: AppData
   onToggleTask: (id: string) => void
   onNewEntry: () => void
+  onOpenEntry: (id: string) => void
   onNewPlan: () => void
   onNewTask: () => void
   onPlanProgress: (id: string, mode: 'step' | 'complete') => void
@@ -609,10 +673,11 @@ function TodayPage({
           {data.entries.slice(0, 2).map((entry) => {
             const category = data.categories.find((item) => item.id === entry.categoryId)
             return (
-              <article className="entry-snippet" key={entry.id}>
+              <button className="entry-snippet" key={entry.id} type="button" onClick={() => onOpenEntry(entry.id)}>
                 <span className="category-dot" style={{ background: category?.color }} />
                 <div><small>{category?.name ?? '未分类'} · {formatShortDate(entry.createdAt.slice(0, 10))}</small><h3>{entry.title}</h3><p>{entry.content}</p></div>
-              </article>
+                <ChevronRight size={16} />
+              </button>
             )
           })}
         </section>
@@ -632,7 +697,21 @@ function TodayPage({
   )
 }
 
-function EntriesPage({ data, setData, onNewEntry }: { data: AppData; setData: DataSetter; onNewEntry: () => void }) {
+function EntriesPage({
+  data,
+  setData,
+  onNewEntry,
+  onOpenEntry,
+  onToggleEntryVisibility,
+  onDeleteEntry,
+}: {
+  data: AppData
+  setData: DataSetter
+  onNewEntry: () => void
+  onOpenEntry: (id: string) => void
+  onToggleEntryVisibility: (id: string) => void
+  onDeleteEntry: (id: string) => void
+}) {
   const [activeCategory, setActiveCategory] = useState('all')
   const [search, setSearch] = useState('')
   const [categoryName, setCategoryName] = useState('')
@@ -655,15 +734,6 @@ function EntriesPage({ data, setData, onNewEntry }: { data: AppData; setData: Da
   const removeCategory = (id: string) => {
     if (data.entries.some((entry) => entry.categoryId === id)) return
     setData((current) => ({ ...current, categories: current.categories.filter((category) => category.id !== id) }))
-  }
-
-  const removeEntry = (id: string) => {
-    if (!window.confirm('确定删除这条记录吗？此操作会同步到云端。')) return
-    setData((current) => ({ ...current, entries: current.entries.filter((entry) => entry.id !== id) }))
-  }
-
-  const toggleEntryVisibility = (id: string) => {
-    setData((current) => ({ ...current, entries: current.entries.map((entry) => entry.id === id ? { ...entry, visibility: entry.visibility === 'public' ? 'private' : 'public', updatedAt: new Date().toISOString() } : entry) }))
   }
 
   return (
@@ -699,15 +769,17 @@ function EntriesPage({ data, setData, onNewEntry }: { data: AppData; setData: Da
           const Icon = categoryIcons[category?.icon ?? 'file'] ?? FileText
           return (
             <article className="entry-card" key={entry.id}>
-              <div className="entry-card-top">
-                <span className="entry-type-icon" style={{ color: category?.color, background: `${category?.color}18` }}><Icon size={18} /></span>
-                <span className={`visibility-badge ${entry.visibility}`}>{entry.visibility === 'public' ? '已公开' : '仅自己'}</span>
-              </div>
-              <small>{category?.name ?? '未分类'} · {formatShortDate(entry.createdAt.slice(0, 10))}</small>
-              <h2>{entry.title}</h2>
-              <p>{entry.content}</p>
-              <div className="tag-row">{entry.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>
-              <div className="entry-card-actions"><button type="button" onClick={() => toggleEntryVisibility(entry.id)}>{entry.visibility === 'public' ? <EyeOff size={14} /> : <Eye size={14} />}{entry.visibility === 'public' ? '转为私密' : '发布'}</button><button className="danger-link" type="button" onClick={() => removeEntry(entry.id)}><Trash2 size={14} />删除</button></div>
+              <button className="entry-card-open" type="button" onClick={() => onOpenEntry(entry.id)}>
+                <div className="entry-card-top">
+                  <span className="entry-type-icon" style={{ color: category?.color, background: `${category?.color}18` }}><Icon size={18} /></span>
+                  <span className={`visibility-badge ${entry.visibility}`}>{entry.visibility === 'public' ? '已公开' : '仅自己'}</span>
+                </div>
+                <small>{category?.name ?? '未分类'} · {formatShortDate(entry.createdAt.slice(0, 10))}</small>
+                <h2>{entry.title}</h2>
+                <p>{entry.content}</p>
+                <div className="tag-row">{entry.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>
+              </button>
+              <div className="entry-card-actions"><button type="button" onClick={() => onOpenEntry(entry.id)}><BookOpen size={14} />查看</button><button type="button" onClick={() => onToggleEntryVisibility(entry.id)}>{entry.visibility === 'public' ? <EyeOff size={14} /> : <Eye size={14} />}{entry.visibility === 'public' ? '转为私密' : '发布'}</button><button className="danger-link" type="button" onClick={() => onDeleteEntry(entry.id)}><Trash2 size={14} />删除</button></div>
             </article>
           )
         })}
@@ -791,7 +863,7 @@ function ReviewsPage({ data, setData }: { data: AppData; setData: DataSetter }) 
   )
 }
 
-function PublicPage({ data }: { data: AppData }) {
+function PublicPage({ data, onOpenEntry }: { data: AppData; onOpenEntry: (id: string) => void }) {
   const publicEntries = data.entries.filter((entry) => entry.visibility === 'public')
   return (
     <div className="public-preview">
@@ -802,7 +874,7 @@ function PublicPage({ data }: { data: AppData }) {
         <div className="public-posts">
           <p className="section-kicker">最近发布</p>
           {publicEntries.length ? publicEntries.map((entry) => (
-            <article key={entry.id}><small>{formatShortDate(entry.createdAt.slice(0, 10))}</small><h3>{entry.title}</h3><p>{entry.content}</p><span>继续阅读 <ArrowRight size={14} /></span></article>
+            <button key={entry.id} type="button" onClick={() => onOpenEntry(entry.id)}><small>{formatShortDate(entry.createdAt.slice(0, 10))}</small><span><strong>{entry.title}</strong><em>{entry.content}</em></span><span>继续阅读 <ArrowRight size={14} /></span></button>
           )) : <p className="muted">还没有公开文章。私人记录不会自动出现在这里。</p>}
         </div>
       </section>
@@ -824,12 +896,53 @@ function SettingsPage({ data, setData, theme, setTheme, syncState, onReset }: { 
   )
 }
 
-function EntryModal({ categories, setData, onClose }: { categories: EntryCategory[]; setData: DataSetter; onClose: () => void }) {
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? '')
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState(categories[0]?.template ?? '')
-  const [tags, setTags] = useState('')
-  const [visibility, setVisibility] = useState<'private' | 'public'>('private')
+function EntryDetailModal({
+  entry,
+  category,
+  onClose,
+  onEdit,
+  onToggleVisibility,
+  onDelete,
+}: {
+  entry: Entry
+  category?: EntryCategory
+  onClose: () => void
+  onEdit: () => void
+  onToggleVisibility: () => void
+  onDelete: () => void
+}) {
+  const Icon = categoryIcons[category?.icon ?? 'file'] ?? FileText
+  const categoryColor = category?.color ?? '#8a7c68'
+
+  return (
+    <Modal title={entry.title} subtitle={`${category?.name ?? '未分类'} · ${formatShortDate(entry.createdAt.slice(0, 10))}`} onClose={onClose} wide>
+      <article className="entry-detail">
+        <div className="entry-detail-meta">
+          <span className="entry-type-icon" style={{ color: categoryColor, background: `${categoryColor}18` }}><Icon size={18} /></span>
+          <span className={`visibility-badge ${entry.visibility}`}>{entry.visibility === 'public' ? '已公开' : '仅自己可见'}</span>
+        </div>
+        {entry.tags.length > 0 && <div className="tag-row">{entry.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
+        <div className="entry-detail-content">
+          {entry.content.split('\n').map((line, index) => <p key={`${line}-${index}`}>{line || '\u00a0'}</p>)}
+        </div>
+        <div className="entry-detail-actions">
+          <button className="danger-button" type="button" onClick={onDelete}><Trash2 size={15} /> 删除</button>
+          <div>
+            <button className="secondary-button" type="button" onClick={onToggleVisibility}>{entry.visibility === 'public' ? <EyeOff size={15} /> : <Eye size={15} />}{entry.visibility === 'public' ? '转为私密' : '发布到主页'}</button>
+            <button className="primary-button" type="button" onClick={onEdit}><Pencil size={15} /> 编辑记录</button>
+          </div>
+        </div>
+      </article>
+    </Modal>
+  )
+}
+
+function EntryModal({ categories, entry, setData, onClose }: { categories: EntryCategory[]; entry?: Entry; setData: DataSetter; onClose: () => void }) {
+  const [categoryId, setCategoryId] = useState(entry?.categoryId ?? categories[0]?.id ?? '')
+  const [title, setTitle] = useState(entry?.title ?? '')
+  const [content, setContent] = useState(entry?.content ?? categories[0]?.template ?? '')
+  const [tags, setTags] = useState(entry?.tags.join(' ') ?? '')
+  const [visibility, setVisibility] = useState<'private' | 'public'>(entry?.visibility ?? 'private')
 
   const selectCategory = (nextId: string) => {
     const previousTemplate = categories.find((category) => category.id === categoryId)?.template ?? ''
@@ -842,15 +955,25 @@ function EntryModal({ categories, setData, onClose }: { categories: EntryCategor
     event.preventDefault()
     if (!title.trim()) return
     const now = new Date().toISOString()
+    const nextEntry: Entry = {
+      id: entry?.id ?? uid('entry'),
+      title: title.trim(),
+      content: content.trim(),
+      categoryId,
+      tags: tags.split(/[,，\s]+/).filter(Boolean),
+      visibility,
+      createdAt: entry?.createdAt ?? now,
+      updatedAt: now,
+    }
     setData((current) => ({
       ...current,
-      entries: [{ id: uid('entry'), title: title.trim(), content: content.trim(), categoryId, tags: tags.split(/[,，\s]+/).filter(Boolean), visibility, createdAt: now, updatedAt: now }, ...current.entries],
+      entries: entry ? replaceEntry(current.entries, nextEntry) : [nextEntry, ...current.entries],
     }))
     onClose()
   }
 
   return (
-    <Modal title="新建记录" subtitle="先写下真实发生的事情，整理可以稍后再做。" onClose={onClose}>
+    <Modal title={entry ? '编辑记录' : '新建记录'} subtitle={entry ? '修改会自动保存到本地，并同步到云端。' : '先写下真实发生的事情，整理可以稍后再做。'} onClose={onClose}>
       <form className="modal-form" onSubmit={submit}>
         <div className="form-grid two-columns">
           <label><span>记录分类</span><select value={categoryId} onChange={(event) => selectCategory(event.target.value)}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
@@ -859,7 +982,7 @@ function EntryModal({ categories, setData, onClose }: { categories: EntryCategor
         <label><span>标题</span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="今天想记录什么？" /></label>
         <label><span>正文</span><textarea value={content} onChange={(event) => setContent(event.target.value)} rows={10} placeholder="从一句话开始……" /></label>
         <label><span>标签</span><input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="用空格或逗号分隔，例如：工作 复盘" /></label>
-        <div className="modal-actions"><button className="secondary-button" type="button" onClick={onClose}>取消</button><button className="primary-button" type="submit">保存记录</button></div>
+        <div className="modal-actions"><button className="secondary-button" type="button" onClick={onClose}>取消</button><button className="primary-button" type="submit">{entry ? '保存修改' : '保存记录'}</button></div>
       </form>
     </Modal>
   )
