@@ -54,9 +54,9 @@ export const seedData: AppData = {
     published: true,
   },
   categories: [
-    { id: 'category-work', name: '工作记录', color: '#52796f', icon: 'briefcase', description: '记录项目进展、问题和下一步', template: '今日进展：\n\n遇到的问题：\n\n下一步：' },
-    { id: 'category-diary', name: '日记', color: '#bb7b58', icon: 'book', description: '记录当天发生的事情与感受', template: '今天发生了什么：\n\n我的感受：\n\n想留给明天的话：' },
-    { id: 'category-reading', name: '读书感想', color: '#6f7896', icon: 'library', description: '整理书籍、摘录与自己的理解', template: '书名：\n作者：\n\n触动我的内容：\n\n我的理解：' },
+    { id: 'category-work', name: '工作记录', color: '#52796f', icon: 'briefcase', description: '记录项目进展、问题和下一步', template: '今日进展：\n\n遇到的问题：\n\n下一步：', countsTowardGrowth: false },
+    { id: 'category-diary', name: '日记', color: '#bb7b58', icon: 'book', description: '记录当天发生的事情与感受', template: '今天发生了什么：\n\n我的感受：\n\n想留给明天的话：', countsTowardGrowth: false },
+    { id: 'category-reading', name: '读书感想', color: '#6f7896', icon: 'library', description: '整理书籍、摘录与自己的理解', template: '书名：\n作者：\n\n触动我的内容：\n\n我的理解：', countsTowardGrowth: true },
   ],
   entries,
   tasks: [

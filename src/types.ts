@@ -7,6 +7,7 @@ export type EntryCategory = {
   icon: string
   description: string
   template: string
+  countsTowardGrowth?: boolean
 }
 
 export type Entry = {
@@ -18,6 +19,7 @@ export type Entry = {
   visibility: Visibility
   createdAt: string
   updatedAt: string
+  growthOverride?: boolean
 }
 
 export type Task = {

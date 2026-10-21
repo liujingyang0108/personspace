@@ -11,6 +11,7 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   CircleUserRound,
   Cloud,
@@ -35,6 +36,7 @@ import {
   Sparkles,
   Sun,
   Target,
+  TrendingUp,
   Trash2,
   Upload,
   Workflow,
@@ -48,6 +50,7 @@ import { addDays, formatShortDate, fromLocalISO, toLocalISO, todayISO } from './
 import { removeEntry, replaceEntry, toggleEntryVisibility } from './lib/entries'
 import { MAX_MARKDOWN_FILE_SIZE, prepareMarkdownImport } from './lib/markdownImport'
 import { buildPlanItems, planProgress } from './lib/plan'
+import { buildGrowthTimeline, entryCountsTowardGrowth, movementLabel } from './lib/growth'
 import { buildDailyReviewSummary } from './lib/review'
 import { expandWikiLinks, referencesEntry, type WikiLinkEntry } from './lib/wikiLinks'
 import { localStore } from './services/localStore'
@@ -68,7 +71,7 @@ import {
 import { checkReminders, notificationPermission, requestReminderPermission } from './services/reminders'
 import type { AppData, DistributionMode, Entry, EntryCategory, Plan, Reflection } from './types'
 
-type Page = 'today' | 'entries' | 'plans' | 'reviews' | 'public' | 'settings'
+type Page = 'today' | 'entries' | 'plans' | 'growth' | 'reviews' | 'public' | 'settings'
 type Theme = 'light' | 'dark'
 type SyncState = 'loading' | 'saving' | 'saved' | 'offline'
 type DataSetter = React.Dispatch<React.SetStateAction<AppData>>
@@ -77,6 +80,7 @@ const navigation: Array<{ id: Page; label: string; icon: LucideIcon }> = [
   { id: 'today', label: '今日', icon: Home },
   { id: 'entries', label: '记录', icon: Feather },
   { id: 'plans', label: '计划', icon: Target },
+  { id: 'growth', label: '成长', icon: TrendingUp },
   { id: 'reviews', label: '复盘', icon: CalendarDays },
   { id: 'public', label: '公开主页', icon: Globe2 },
 ]
@@ -85,6 +89,7 @@ const pageTitles: Record<Page, { eyebrow: string; title: string }> = {
   today: { eyebrow: '你的生活，慢慢写', title: '今天，想完成什么？' },
   entries: { eyebrow: '每一种经历，都值得归档', title: '记录' },
   plans: { eyebrow: '把遥远的目标，放进每一天', title: '计划' },
+  growth: { eyebrow: '看见每天积累的方向', title: '成长轨迹' },
   reviews: { eyebrow: '看见行动，也看见原因', title: '复盘' },
   public: { eyebrow: '选择你愿意分享的部分', title: '公开主页' },
   settings: { eyebrow: '你的空间，由你决定', title: '设置' },
@@ -357,13 +362,14 @@ function Workspace({ user, onSignedOut }: { user: CloudUser; onSignedOut: () => 
           />
         )}
         {page === 'plans' && <PlansPage plans={data.plans} setData={setData} onNewPlan={() => setPlanModalOpen(true)} onPlanProgress={updateTodayPlanProgress} />}
+        {page === 'growth' && <GrowthPage data={data} onOpenEntry={setSelectedEntryId} />}
         {page === 'reviews' && <ReviewsPage data={data} setData={setData} />}
         {page === 'public' && <PublicPage data={data} onOpenEntry={setSelectedEntryId} />}
         {page === 'settings' && <SettingsPage data={data} setData={setData} theme={theme} setTheme={setTheme} syncState={syncState} onReset={resetDemo} />}
       </main>
 
       <nav className="mobile-bottom-nav" aria-label="主要导航">
-        {navigation.slice(0, 4).map((item) => {
+        {navigation.slice(0, 5).map((item) => {
           const Icon = item.icon
           return (
             <button key={item.id} className={page === item.id ? 'active' : ''} type="button" onClick={() => navigate(item.id)}>
@@ -739,7 +745,7 @@ function EntriesPage({
   const addCategory = () => {
     const name = categoryName.trim()
     if (!name) return
-    const category: EntryCategory = { id: uid('category'), name, color: '#8a7c68', icon: 'file', description: '自定义记录分类', template: '' }
+    const category: EntryCategory = { id: uid('category'), name, color: '#8a7c68', icon: 'file', description: '自定义记录分类', template: '', countsTowardGrowth: false }
     setData((current) => ({ ...current, categories: [...current.categories, category] }))
     setCategoryName('')
   }
@@ -747,6 +753,14 @@ function EntriesPage({
   const removeCategory = (id: string) => {
     if (data.entries.some((entry) => entry.categoryId === id)) return
     setData((current) => ({ ...current, categories: current.categories.filter((category) => category.id !== id) }))
+  }
+  const toggleCategoryGrowth = (id: string) => {
+    setData((current) => ({
+      ...current,
+      categories: current.categories.map((category) => category.id === id
+        ? { ...category, countsTowardGrowth: !category.countsTowardGrowth }
+        : category),
+    }))
   }
 
   return (
@@ -761,7 +775,7 @@ function EntriesPage({
         <section className="card category-manager">
           <div><p className="section-kicker">自定义分类</p><h2>让不同的记录，有自己的结构</h2></div>
           <div className="category-manager-list">
-            {data.categories.map((category) => <span key={category.id}><i style={{ background: category.color }} />{category.name}<button type="button" aria-label={`删除${category.name}`} disabled={data.entries.some((entry) => entry.categoryId === category.id)} onClick={() => removeCategory(category.id)}><X size={13} /></button></span>)}
+            {data.categories.map((category) => <span key={category.id}><i style={{ background: category.color }} />{category.name}<button className={`growth-category-toggle ${category.countsTowardGrowth ? 'active' : ''}`} type="button" onClick={() => toggleCategoryGrowth(category.id)}>{category.countsTowardGrowth ? '计入成长' : '普通记录'}</button><button type="button" aria-label={`删除${category.name}`} disabled={data.entries.some((entry) => entry.categoryId === category.id)} onClick={() => removeCategory(category.id)}><X size={13} /></button></span>)}
           </div>
           <div className="inline-form"><input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} placeholder="例如：旅行记录" onKeyDown={(event) => event.key === 'Enter' && addCategory()} /><button className="primary-button" type="button" onClick={addCategory}>添加分类</button></div>
         </section>
@@ -785,7 +799,7 @@ function EntriesPage({
               <button className="entry-card-open" type="button" onClick={() => onOpenEntry(entry.id)}>
                 <div className="entry-card-top">
                   <span className="entry-type-icon" style={{ color: category?.color, background: `${category?.color}18` }}><Icon size={18} /></span>
-                  <span className={`visibility-badge ${entry.visibility}`}>{entry.visibility === 'public' ? '已公开' : '仅自己'}</span>
+                  <span className="entry-badges">{entryCountsTowardGrowth(entry, category) && <span className="growth-badge">成长记录</span>}<span className={`visibility-badge ${entry.visibility}`}>{entry.visibility === 'public' ? '已公开' : '仅自己'}</span></span>
                 </div>
                 <small>{category?.name ?? '未分类'} · {formatShortDate(entry.createdAt.slice(0, 10))}</small>
                 <h2>{entry.title}</h2>
@@ -840,6 +854,105 @@ function PlansPage({ plans, setData, onNewPlan, onPlanProgress }: { plans: Plan[
           )
         })}
       </div>
+    </div>
+  )
+}
+
+function GrowthPage({ data, onOpenEntry }: { data: AppData; onOpenEntry: (entryId: string) => void }) {
+  const today = todayISO()
+  const todayDate = fromLocalISO(today)
+  const [month, setMonth] = useState(() => new Date(todayDate.getFullYear(), todayDate.getMonth(), 1))
+  const [selectedDate, setSelectedDate] = useState(today)
+  const monthStart = new Date(month.getFullYear(), month.getMonth(), 1)
+  const calendarStart = addDays(monthStart, -monthStart.getDay())
+  const calendarEnd = addDays(calendarStart, 41)
+  const calendarTimeline = buildGrowthTimeline(data, toLocalISO(calendarEnd), 42)
+  const calendarByDate = new Map(calendarTimeline.filter((day) => day.date <= today).map((day) => [day.date, day]))
+  const calendarDays = Array.from({ length: 42 }, (_, index) => toLocalISO(addDays(calendarStart, index)))
+  const yearlyTimeline = useMemo(() => buildGrowthTimeline(data, today, 365), [data, today])
+  const trend = yearlyTimeline.slice(-14)
+  const current = yearlyTimeline.at(-1)
+  const selected = calendarByDate.get(selectedDate) ?? yearlyTimeline.find((day) => day.date === selectedDate)
+  const pathDays = yearlyTimeline.slice(-14)
+  const positions = pathDays.map((day) => day.position)
+  const minPosition = Math.min(...positions, 0)
+  const maxPosition = Math.max(...positions, 1)
+  const pathPoints = pathDays.map((day, index) => {
+    const x = 20 + (index * 660) / Math.max(pathDays.length - 1, 1)
+    const y = 130 - ((day.position - minPosition) / Math.max(maxPosition - minPosition, 1)) * 90
+    return `${x},${y}`
+  }).join(' ')
+  const isCurrentMonth = month.getFullYear() === todayDate.getFullYear() && month.getMonth() === todayDate.getMonth()
+
+  const changeMonth = (amount: number) => {
+    const next = new Date(month.getFullYear(), month.getMonth() + amount, 1)
+    setMonth(next)
+    const nextDate = toLocalISO(next)
+    setSelectedDate(nextDate > today ? today : nextDate)
+  }
+
+  return (
+    <div className="page-stack growth-page">
+      <section className="card growth-hero">
+        <div>
+          <p className="section-kicker">当前成长位置</p>
+          <h2>{current?.position ?? 0}<span> 步</span></h2>
+          <p>记录不会自动等于进步，只有任务、计划、复盘和被标记为“计入成长”的记录参与计算。</p>
+        </div>
+        <div className={`movement-summary movement-${current?.movement ?? 0}`}>
+          <TrendingUp size={22} />
+          <span><small>今天</small><strong>{movementLabel(current?.movement ?? 0)}</strong></span>
+          <em>{current?.movement === 2 ? '+2' : current?.movement === 1 ? '+1' : current?.movement === -1 ? '-1' : '0'}</em>
+        </div>
+      </section>
+
+      <section className="card growth-path-card">
+        <div className="card-heading"><div><p className="section-kicker">成长路径</p><h2>最近 14 天走过的路</h2></div><span className="growth-score">今日行动分 {current?.score ?? 0}</span></div>
+        <div className="growth-path-visual" aria-label="最近十四天成长位置变化">
+          <svg viewBox="0 0 700 160" preserveAspectRatio="none" role="img">
+            <polyline points={pathPoints} />
+            {pathDays.map((day, index) => {
+              const [x, y] = pathPoints.split(' ')[index].split(',')
+              return <circle key={day.date} cx={x} cy={y} r={day.date === today ? 7 : 4} className={`movement-${day.movement}`} />
+            })}
+          </svg>
+          <div className="growth-path-labels"><span>{formatShortDate(pathDays[0]?.date ?? today)}</span><span>今天</span></div>
+        </div>
+      </section>
+
+      <div className="growth-layout">
+        <section className="card growth-calendar-card">
+          <div className="calendar-heading">
+            <div><p className="section-kicker">成长日历</p><h2>{new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: 'long' }).format(month)}</h2></div>
+            <div><button type="button" aria-label="上个月" onClick={() => changeMonth(-1)}><ChevronLeft size={17} /></button><button type="button" aria-label="下个月" disabled={isCurrentMonth} onClick={() => changeMonth(1)}><ChevronRight size={17} /></button></div>
+          </div>
+          <div className="calendar-weekdays">{['日', '一', '二', '三', '四', '五', '六'].map((day) => <span key={day}>{day}</span>)}</div>
+          <div className="growth-calendar-grid">
+            {calendarDays.map((date) => {
+              const day = calendarByDate.get(date)
+              const dateValue = fromLocalISO(date)
+              const outside = dateValue.getMonth() !== month.getMonth()
+              const future = date > today
+              return <button key={date} type="button" className={`${outside ? 'outside' : ''} ${selectedDate === date ? 'selected' : ''} movement-${day?.movement ?? 0}`} disabled={future} onClick={() => setSelectedDate(date)}><span>{dateValue.getDate()}</span>{day && <><i>{day.movement === 2 ? '↑↑' : day.movement === 1 ? '↑' : day.movement === -1 ? '↓' : '·'}</i><small>{day.score}</small></>}</button>
+            })}
+          </div>
+        </section>
+
+        <section className="card growth-detail-card">
+          <p className="section-kicker">{selected ? formatShortDate(selected.date) : '选择日期'}</p>
+          <h2>{selected ? movementLabel(selected.movement) : '暂无成长数据'}</h2>
+          {selected && <>
+            <div className="growth-day-metrics"><span><small>行动分</small><strong>{selected.score}</strong></span><span><small>任务</small><strong>{selected.tasks.completed}/{selected.tasks.total}</strong></span><span><small>计划</small><strong>{selected.plans.achieved}/{selected.plans.total}</strong></span><span><small>成长记录</small><strong>{selected.growthEntries.length}</strong></span></div>
+            <div className="growth-reasons"><strong>为什么是这个结果</strong>{selected.reasons.map((reason) => <p key={reason}>• {reason}</p>)}</div>
+            {selected.growthEntries.length > 0 && <div className="growth-evidence"><strong>成长证据</strong>{selected.growthEntries.map((entry) => <button key={entry.id} type="button" onClick={() => onOpenEntry(entry.id)}>{entry.title}<ArrowRight size={13} /></button>)}</div>}
+          </>}
+        </section>
+      </div>
+
+      <section className="card growth-trend-card">
+        <div className="card-heading"><div><p className="section-kicker">行动趋势</p><h2>最近 14 天</h2></div><small>行动分用于日间比较，不代表记录内容的价值。</small></div>
+        <div className="growth-bars">{trend.map((day) => <div key={day.date} title={`${day.date}：${day.score} 分`}><span style={{ height: `${Math.max(4, day.score)}%` }} className={`movement-${day.movement}`} /><small>{fromLocalISO(day.date).getDate()}</small></div>)}</div>
+      </section>
     </div>
   )
 }
@@ -944,7 +1057,7 @@ function EntryDetailModal({
       <article className="entry-detail">
         <div className="entry-detail-meta">
           <span className="entry-type-icon" style={{ color: categoryColor, background: `${categoryColor}18` }}><Icon size={18} /></span>
-          <span className={`visibility-badge ${entry.visibility}`}>{entry.visibility === 'public' ? '已公开' : '仅自己可见'}</span>
+          <span className="entry-badges">{entryCountsTowardGrowth(entry, category) && <span className="growth-badge">计入成长</span>}<span className={`visibility-badge ${entry.visibility}`}>{entry.visibility === 'public' ? '已公开' : '仅自己可见'}</span></span>
         </div>
         {entry.tags.length > 0 && <div className="tag-row">{entry.tags.map((tag) => <span key={tag}>#{tag}</span>)}</div>}
         <MarkdownContent content={entry.content} entries={entries} onOpenEntry={onOpenEntry} className="entry-detail-content" />
@@ -972,6 +1085,7 @@ function EntryModal({ categories, entries, entry, setData, onClose, onOpenEntry 
   const [content, setContent] = useState(entry?.content ?? categories[0]?.template ?? '')
   const [tags, setTags] = useState(entry?.tags.join(' ') ?? '')
   const [visibility, setVisibility] = useState<'private' | 'public'>(entry?.visibility ?? 'private')
+  const [growthMode, setGrowthMode] = useState<'inherit' | 'include' | 'exclude'>(entry?.growthOverride === true ? 'include' : entry?.growthOverride === false ? 'exclude' : 'inherit')
   const [editorMode, setEditorMode] = useState<'edit' | 'preview'>('edit')
   const [importStatus, setImportStatus] = useState('')
   const editorRef = useRef<HTMLTextAreaElement>(null)
@@ -1049,6 +1163,7 @@ function EntryModal({ categories, entries, entry, setData, onClose, onOpenEntry 
       visibility,
       createdAt: entry?.createdAt ?? now,
       updatedAt: now,
+      growthOverride: growthMode === 'inherit' ? undefined : growthMode === 'include',
     }
     setData((current) => ({
       ...current,
@@ -1060,9 +1175,10 @@ function EntryModal({ categories, entries, entry, setData, onClose, onOpenEntry 
   return (
     <Modal title={entry ? '编辑记录' : '新建记录'} subtitle={entry ? '支持 Markdown，修改会自动保存并同步到云端。' : '支持 Markdown 长文写作，也可以直接输入普通文字。'} onClose={onClose} editor>
       <form className="modal-form" onSubmit={submit}>
-        <div className="form-grid two-columns">
+        <div className="form-grid three-columns">
           <label><span>记录分类</span><select value={categoryId} onChange={(event) => selectCategory(event.target.value)}>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
           <label><span>可见范围</span><select value={visibility} onChange={(event) => setVisibility(event.target.value as 'private' | 'public')}><option value="private">仅自己可见</option><option value="public">加入公开主页</option></select></label>
+          <label><span>成长轨迹</span><select value={growthMode} onChange={(event) => setGrowthMode(event.target.value as 'inherit' | 'include' | 'exclude')}><option value="inherit">跟随分类（{categories.find((category) => category.id === categoryId)?.countsTowardGrowth ? '计入' : '不计入'}）</option><option value="include">这篇计入成长</option><option value="exclude">这篇不计入成长</option></select></label>
         </div>
         <label><span>标题</span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder="今天想记录什么？" /></label>
         <section className="markdown-editor-section">
